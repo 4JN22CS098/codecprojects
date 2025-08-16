@@ -246,7 +246,7 @@
     }
   }, 1500);
 
-  // ---------- Security ----------
+  
   const sec = load(secKey, { state:'disarmed', subtype:null });
   const securityStatus = $('#securityStatus');
   const pinInput = $('#pin'); pinInput.value = load(pinKey, "") || "";
@@ -282,7 +282,7 @@
     else { setSec('alarm'); addFeed('Wrong PIN! Alarm triggered.'); }
   });
 
-  // Simulate door sensor events occasionally
+
   setInterval(() => {
     if (Math.random() < 0.08) {
       const events = ['Front door opened','Back door opened','Motion detected in Living Room'];
@@ -292,11 +292,12 @@
     }
   }, 5000);
 
-  // ---------- Accessibility niceties ----------
-  // Reduce motion users: stop temp animation speed
+  
+  
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     // No-op here as we use small transitions; left for extensibility
   }
 </script>
 </body>
+
 </html>
