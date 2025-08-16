@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Smart Home Control Dashboard</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #111827;
+    --card: #1f2937;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --accent: #22c55e;
+    --danger: #ef4444;
+    --focus: #93c5fd;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f8fafc; --panel:#ffffff; --card:#f1f5f9; --text:#0f172a; --muted:#475569; --accent:#16a34a; --danger:#dc2626; --focus:#2563eb;
+    }
+  }
+  * { box-sizing: border-box }
+  html,body{height:100%}
+  body{
+    margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    background: linear-gradient(180deg,var(--bg),#06090f);
+    color: var(--text);
+  }
+  header{
+    position: sticky; top:0; z-index: 10;
+    background: rgba(17,24,39,.8); backdrop-filter: blur(6px);
+    border-bottom: 1px solid #334155;
+    padding: .75rem 1rem; display:flex; align-items:center; gap:.75rem; justify-content: space-between;
+  }
+  header h1{font-size:1.15rem; margin:0}
+  main{max-width:1100px; margin:1rem auto; padding: 0 1rem;}
+  .grid{display:grid; gap:1rem; grid-template-columns: repeat(12,1fr)}
+  .col-4{grid-column: span 4}
+  .col-6{grid-column: span 6}
+  .col-8{grid-column: span 8}
+  .card{
+    background: var(--card);
+    border: 1px solid #334155;
+    border-radius: .8rem; padding: 1rem; min-height: 140px;
+    box-shadow: 0 10px 20px rgba(0,0,0,.25);
+  }
+  @media (max-width: 900px){
+    .col-8, .col-6, .col-4 { grid-column: span 12; }
+  }
+  .card h2{font-size:1rem; margin:0 0 .75rem; display:flex; align-items:center; gap:.5rem}
+  .muted{color: var(--muted); font-size:.9rem}
+  .device-list{display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:.75rem}
+  .device{
+    display:flex; align-items:center; justify-content:space-between; gap:.75rem;
+    background: var(--panel); border:1px solid #334155; border-radius:.7rem; padding:.75rem 1rem;
+  }
+  /* Toggle */
+  .toggle { position: relative; width: 56px; height: 32px; }
+  .toggle input{ appearance:none; width:100%; height:100%; border-radius: 999px; background:#334155; outline:none; cursor:pointer; transition: background .2s }
+  .toggle input:checked{ background: #16a34a }
+  .toggle input:focus-visible{ box-shadow: 0 0 0 3px var(--focus) }
+  .toggle span{
+    position:absolute; top:3px; left:3px; width:26px; height:26px; border-radius:50%;
+    background:#fff; transition: transform .2s;
+  }
+  .toggle input:checked + span{ transform: translateX(24px) }
+  /* Thermostat */
+  .thermo{
+    display:grid; grid-template-columns: 1fr auto; gap:1rem; align-items:center;
+  }
+  .thermo .readout{font-size:2.5rem; font-variant-numeric: tabular-nums;}
+  .range{ width:100% }
+  .btn{
+    appearance:none; border:1px solid #334155; background: var(--panel); color: var(--text);
+    padding:.6rem .9rem; border-radius:.6rem; cursor:pointer; font-weight:600;
+  }
+  .btn:focus-visible{ outline:none; box-shadow: 0 0 0 3px var(--focus) }
+  .btn-accent{ border-color: transparent; background: var(--accent) }
+  .btn-danger{ border-color: transparent; background: var(--danger) }
+  .status-dot{ width:.6rem; height:.6rem; border-radius:999px; display:inline-block; vertical-align:middle; margin-right:.4rem }
+  .dot-ok{ background: #22c55e } .dot-warn{ background:#f59e0b } .dot-bad{ background:#ef4444 }
+  .sr-only{ position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  footer{padding: 1rem; text-align:center; color: var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Smart Home Control</h1>
+    <div aria-live="polite" class="muted" id="time"></div>
+  </div>
+  <div class="muted" id="connection"><span class="status-dot dot-ok" aria-hidden="true"></span><span id="connText">Connected</span></div>
+</header>
+
+<main>
+  <section class="grid">
+    <!-- Lights -->
+    <article class="card col-8" aria-labelledby="lightsTitle">
+      <h2 id="lightsTitle">Lights <span class="muted">Rooms</span></h2>
+      <div class="device-list" id="lightsList" role="group" aria-label="Lights"></div>
+    </article>
+
+    <!-- Security -->
+    <article class="card col-4" aria-labelledby="securityTitle">
+      <h2 id="securityTitle">Security</h2>
+      <p class="muted" id="securityStatus"><span class="status-dot dot-ok" aria-hidden="true"></span>System disarmed</p>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap">
+        <button class="btn btn-accent" id="armBtn" aria-pressed="false">Arm Away</button>
+        <button class="btn" id="stayBtn" aria-pressed="false">Arm Stay</button>
+        <button class="btn btn-danger" id="disarmBtn">Disarm</button>
+      </div>
+      <hr style="border:0;border-top:1px solid #334155; margin:1rem 0" />
+      <div>
+        <label for="pin" class="muted">PIN (for arm/disarm)</label>
+        <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" aria-describedby="pinHelp" maxlength="6"
+               style="width:100%; padding:.6rem .8rem; border-radius:.5rem; border:1px solid #334155; background:var(--panel); color:var(--text)" />
+        <div id="pinHelp" class="muted">Tip: 4–6 digits. Stored only in this device (local).</div>
+      </div>
+    </article>
+
+    <!-- Thermostat -->
+    <article class="card col-6" aria-labelledby="thermoTitle">
+      <h2 id="thermoTitle">Thermostat</h2>
+      <div class="thermo">
+        <div>
+          <div class="readout"><span id="currentTemp" aria-live="polite">24.0</span>°C</div>
+          <div class="muted">Target: <strong id="targetTemp">24</strong>°C • Mode: <strong id="modeTxt">Heat</strong></div>
+        </div>
+        <div>
+          <button class="btn" id="modeBtn" aria-pressed="true">Toggle Heat/Cool</button>
+        </div>
+      </div>
+      <label for="tempRange" class="sr-only">Set target temperature</label>
+      <input id="tempRange" class="range" type="range" min="16" max="30" step="1" value="24" />
+    </article>
+
+    <!-- Activity feed -->
+    <article class="card col-6" aria-labelledby="feedTitle">
+      <h2 id="feedTitle">Activity Feed</h2>
+      <ol id="feed" class="muted" aria-live="polite" style="margin:0; padding-left:1.2rem; line-height:1.7"></ol>
+    </article>
+  </section>
+</main>
+
+<footer>
+  Built with accessibility and responsive design. Changes persist in localStorage. Real‑time status is simulated.
+</footer>
+
+<script>
+  // ---------- Helpers ----------
+  const $ = (sel) => document.querySelector(sel);
+  const lightsKey = "smarthome.lights";
+  const thermoKey = "smarthome.thermo";
+  const secKey = "smarthome.security";
+  const pinKey = "smarthome.pin";
+
+  const defaultLights = [
+    {id:"kitchen", name:"Kitchen", on:false},
+    {id:"living", name:"Living Room", on:true},
+    {id:"bed", name:"Bedroom", on:false},
+    {id:"bath", name:"Bathroom", on:false},
+    {id:"porch", name:"Porch", on:true},
+  ];
+
+  function save(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+  function load(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
+
+  function addFeed(msg){
+    const time = new Date().toLocaleTimeString();
+    const li = document.createElement('li');
+    li.textContent = `[${time}] ${msg}`;
+    $('#feed').prepend(li);
+    // Keep last 20
+    const items = $('#feed').querySelectorAll('li'); if(items.length>20) items[items.length-1].remove();
+  }
+
+  // ---------- Time + Connection ----------
+  function tickClock(){ $('#time').textContent = new Date().toLocaleString(); }
+  tickClock(); setInterval(tickClock, 1000);
+
+  let connected = true;
+  setInterval(() => {
+    // Simulate transient connectivity changes
+    if (Math.random() < 0.03) connected = !connected;
+    $('#connection').innerHTML = `<span class="status-dot ${connected?'dot-ok':'dot-bad'}" aria-hidden="true"></span><span id="connText">${connected?'Connected':'Reconnecting...'}</span>`;
+  }, 3000);
+
+  // ---------- Lights ----------
+  const lights = load(lightsKey, defaultLights);
+  const list = $('#lightsList');
+
+  function renderLights(){
+    list.innerHTML = "";
+    lights.forEach((d, idx) => {
+      const device = document.createElement('div');
+      device.className = 'device';
+      const label = document.createElement('label');
+      label.setAttribute('for', `sw-${d.id}`);
+      label.textContent = d.name;
+      const wrap = document.createElement('div');
+      wrap.className = 'toggle';
+      const input = document.createElement('input');
+      input.type = 'checkbox'; input.role = 'switch';
+      input.id = `sw-${d.id}`; input.checked = !!d.on; input.setAttribute('aria-label', `${d.name} light`);
+      const knob = document.createElement('span');
+      input.addEventListener('change', () => {
+        d.on = input.checked; save(lightsKey, lights);
+        addFeed(`${d.name} light ${d.on?'ON':'OFF'}`);
+      });
+      wrap.appendChild(input); wrap.appendChild(knob);
+      device.appendChild(label); device.appendChild(wrap);
+      list.appendChild(device);
+    });
+  }
+  renderLights();
+
+  // ---------- Thermostat ----------
+  const thermo = load(thermoKey, { target:24, mode:'Heat', current:24.0 });
+  const tempRange = $('#tempRange'), targetText = $('#targetTemp'), currentText = $('#currentTemp'), modeBtn = $('#modeBtn'), modeTxt = $('#modeTxt');
+
+  function renderThermo(){
+    tempRange.value = thermo.target; targetText.textContent = thermo.target; currentText.textContent = thermo.current.toFixed(1); modeTxt.textContent = thermo.mode;
+  }
+  renderThermo();
+
+  tempRange.addEventListener('input', () => {
+    thermo.target = +tempRange.value; save(thermoKey, thermo);
+  });
+  tempRange.addEventListener('change', () => {
+    targetText.textContent = thermo.target;
+    addFeed(`Thermostat target set to ${thermo.target}°C`);
+  });
+
+  modeBtn.addEventListener('click', () => {
+    thermo.mode = (thermo.mode === 'Heat' ? 'Cool' : 'Heat'); save(thermoKey, thermo); renderThermo();
+    addFeed(`Thermostat mode: ${thermo.mode}`);
+  });
+
+  // Simulate real-time temperature drift towards target
+  setInterval(() => {
+    const dir = Math.sign(thermo.target - thermo.current);
+    if (Math.abs(thermo.target - thermo.current) > 0.05) {
+      thermo.current += dir * (0.05 + Math.random()*0.07);
+      save(thermoKey, thermo); currentText.textContent = thermo.current.toFixed(1);
+    }
+  }, 1500);
+
+  // ---------- Security ----------
+  const sec = load(secKey, { state:'disarmed', subtype:null });
+  const securityStatus = $('#securityStatus');
+  const pinInput = $('#pin'); pinInput.value = load(pinKey, "") || "";
+  function setSec(state, subtype=null){
+    sec.state = state; sec.subtype = subtype; save(secKey, sec);
+    const map = { disarmed: ['dot-ok','System disarmed'],
+                  armed_away: ['dot-warn','Armed (Away)'],
+                  armed_stay: ['dot-warn','Armed (Stay)'],
+                  alarm: ['dot-bad','ALARM triggered!'] };
+    const [cls, text] = map[state] || ['dot-bad', 'Unknown'];
+    securityStatus.innerHTML = `<span class="status-dot ${cls}" aria-hidden="true"></span>${text}`;
+  }
+  setSec(sec.state, sec.subtype);
+
+  $('#armBtn').addEventListener('click', () => {
+    const pin = pinInput.value.trim();
+    if (!pin) { addFeed('Enter PIN to arm.'); pinInput.focus(); return; }
+    save(pinKey, pin);
+    setSec('armed_away'); addFeed('Security armed (Away).');
+  });
+  $('#stayBtn').addEventListener('click', () => {
+    const pin = pinInput.value.trim();
+    if (!pin) { addFeed('Enter PIN to arm.'); pinInput.focus(); return; }
+    save(pinKey, pin);
+    setSec('armed_stay'); addFeed('Security armed (Stay).');
+  });
+  $('#disarmBtn').addEventListener('click', () => {
+    const pin = pinInput.value.trim();
+    if (!pin) { addFeed('Enter PIN to disarm.'); pinInput.focus(); return; }
+    // For demo: any stored pin works
+    const stored = load(pinKey, "");
+    if (stored && stored === pin) { setSec('disarmed'); addFeed('Security disarmed.'); }
+    else { setSec('alarm'); addFeed('Wrong PIN! Alarm triggered.'); }
+  });
+
+  // Simulate door sensor events occasionally
+  setInterval(() => {
+    if (Math.random() < 0.08) {
+      const events = ['Front door opened','Back door opened','Motion detected in Living Room'];
+      const e = events[Math.floor(Math.random()*events.length)];
+      addFeed(e);
+      if (sec.state.startsWith('armed')) { setSec('alarm'); }
+    }
+  }, 5000);
+
+  // ---------- Accessibility niceties ----------
+  // Reduce motion users: stop temp animation speed
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // No-op here as we use small transitions; left for extensibility
+  }
+</script>
+</body>
+</html>
